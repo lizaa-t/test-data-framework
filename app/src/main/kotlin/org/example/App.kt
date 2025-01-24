@@ -39,21 +39,25 @@ class SomeDatabaseStorage(
 
 }
 
-val linksRegistry = HashMap<String, Pair<Any, KClass<Any>>>()
+// class-wrapper instead of Any
+val linksRegistry = HashMap<String, HashMap<Enum<*>, Any>>()
 
-class Link(private val linkName: String) {
-    //- User(link(NAME).forValue(1))
-    fun <T : Any> forValue(value: T) : T {
-        linksRegistry[this.linkName] = Pair(value, value::class)
+class Link<T: Enum<T>>(private val linkName: T) {
+    fun forValue(value: Any): Any {
+        val classQualifiedName = value::class.qualifiedName!!
+        linksRegistry.putIfAbsent(classQualifiedName, HashMap())
+        linksRegistry[classQualifiedName]!![linkName] = value
         return value
     }
 }
 
-fun from(linkName: String) : Any {
-    return linksRegistry.getValue(linkName)
+inline fun <reified T> from(linkName: Enum<*>) : T {
+    val classQualifiedName = T::class.qualifiedName!!
+    return linksRegistry.getValue(classQualifiedName).getValue(linkName) as T
 }
 
-//а тот кто пользуется ссылкой:
+
+//- User(link(NAME).forValue(1))
 //- Course(userId = from(NAME))
 
 //fun record(storage: Storage, operation: (Entry) -> Entry): Storage {
@@ -73,8 +77,10 @@ fun main() {
             SomeDatabaseTableRecord("second record", Date())
         )
     )
-
-
+    val linkValue = Link(LinkNames.ONE_LINK).forValue(1)
+    println(linkValue)
+    val link = from<Int>(LinkNames.ONE_LINK)
+    println(link)
 
 //    provider.save(
 //        SomeDatabaseTableRecord("first record", Date()),
