@@ -3,7 +3,8 @@ package org.example
 import java.util.Date
 import kotlin.reflect.KClass
 
-interface Entry
+interface Entry {
+}
 
 class SomeDatabaseTableRecord(val col1: String, val col2: Date) : Entry {}
 
@@ -22,24 +23,18 @@ class SomeDatabaseProvider : Provider {
     }
 }
 
-interface Storage {
-    val provider: Provider
-    val entries: List<Entry>
+abstract class Storage(val provider: Provider) {
+    val entries: MutableList<Entry> = mutableListOf()
 
-    fun save_entries() {
-        println("save entries in storage")
-//        provider.save(this.entries.pop(), *this.entries)
+    operator fun Entry.unaryMinus() {
+        this@Storage.entries.add(this)
     }
 }
 
-class SomeDatabaseStorage(
-    override val provider: Provider,
-    override val entries: List<Entry>
-) : Storage {
+class SomeDatabaseStorage(provider: Provider) : Storage(provider) {
 
 }
 
-// class-wrapper instead of Any
 val linksRegistry = HashMap<String, HashMap<Enum<*>, Any>>()
 
 class Link<T: Enum<T>>(private val linkName: T) {
@@ -60,27 +55,27 @@ inline fun <reified T> from(linkName: Enum<*>) : T {
 //- User(link(NAME).forValue(1))
 //- Course(userId = from(NAME))
 
-//fun record(storage: Storage, operation: (Entry) -> Entry): Storage {
-//    return storage
-//}
-
 enum class LinkNames {
     ONE_LINK, TWO_LINK
 }
 
+fun record(storage: Storage, action: Storage.() -> Unit): Storage {
+    storage.apply(action)
+    return storage
+}
+
 fun main() {
     val provider = SomeDatabaseProvider()
-    val storage = SomeDatabaseStorage(
-        provider,
-        listOf(
-            SomeDatabaseTableRecord("first record", Date()),
-            SomeDatabaseTableRecord("second record", Date())
-        )
-    )
+    val storage = SomeDatabaseStorage(provider)
+
     val linkValue = Link(LinkNames.ONE_LINK).forValue(1)
-    println(linkValue)
     val link = from<Int>(LinkNames.ONE_LINK)
-    println(link)
+
+    val case = record(storage) {
+        - SomeDatabaseTableRecord("third record", Date())
+        - SomeDatabaseTableRecord("fourth record", Date())
+    }
+    println(case.entries.first())
 
 //    provider.save(
 //        SomeDatabaseTableRecord("first record", Date()),
